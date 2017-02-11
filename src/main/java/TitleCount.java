@@ -18,9 +18,7 @@ import org.apache.hadoop.util.ToolRunner;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.List;
-import java.util.StringTokenizer;
+import java.util.*;
 
 // >>> Don't Change
 public class TitleCount extends Configured implements Tool {
@@ -85,14 +83,29 @@ public class TitleCount extends Configured implements Tool {
 
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-            // TODO
+
+            StringTokenizer tokens = new StringTokenizer(value.toString(), delimiters);
+            while(tokens.hasMoreTokens()) {
+                String token = tokens.nextToken().trim().toLowerCase();
+                if(!stopWords.contains(token)) {
+                    context.write(new Text(token), new IntWritable(1));
+                }
+            }
         }
     }
 
     public static class TitleCountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
         @Override
-        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            // TODO
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+
+            int freq = 0;
+            // Iterate over the words object and sum word occurrences
+            for(IntWritable hit : values) {
+                    freq += 1;
+                }
+
+            context.write(key, new IntWritable(freq));
         }
     }
 }
