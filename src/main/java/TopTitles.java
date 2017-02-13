@@ -123,17 +123,32 @@ public class TopTitles extends Configured implements Tool {
             this.delimiters = readHDFSFile(delimitersPath, conf);
         }
 
-
+        // Map tokens/words into intermediate output for reduction of word frequency through Wikipedia titles
         @Override
         public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-        // TODO
+            StringTokenizer tokens = new StringTokenizer(value.toString(), delimiters);
+            while(tokens.hasMoreTokens()) {
+                String token = tokens.nextToken().trim().toLowerCase();
+                if(!stopWords.contains(token)) {
+                    context.write(new Text(token), new IntWritable(1));
+                }
+            }
         }
     }
 
     public static class TitleCountReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
+        //Sum the number of word occurrences to derive frequency
         @Override
-        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
-            // TODO
+        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+                throws IOException, InterruptedException {
+
+            int freq = 0;
+            // Iterate over the words object and sum word occurrences
+            for(IntWritable val : values) {
+                freq += val.get();
+            }
+
+            context.write(key, new IntWritable(freq));
         }
     }
 

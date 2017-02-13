@@ -13,6 +13,7 @@ public class MapRedTrain {
     private enum FilePath {
         DELIMITER_FILE("tmp/delimiters.txt"),
         STOP_WORD_FILE("tmp/stopwords.txt"),
+        EXA_FILE("exA-part-r-00000"),
         TITLE_FILE("tmp/titles-a");
 
         private String path;
