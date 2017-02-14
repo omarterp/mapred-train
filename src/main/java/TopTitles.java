@@ -154,7 +154,8 @@ public class TopTitles extends Configured implements Tool {
 
     public static class TopTitlesMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
         Integer N;
-        // TODO
+
+        private TreeSet<Pair<Integer, String>> invertedWordCount = new TreeSet<>();
 
         @Override
         protected void setup(Context context) throws IOException,InterruptedException {
@@ -162,20 +163,31 @@ public class TopTitles extends Configured implements Tool {
             this.N = conf.getInt("N", 10);
         }
 
+        // If invertedWordCount is greater than Top N, remove first element - minimum word count
         @Override
         public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            // TODO
+            invertedWordCount.add(new Pair<>(Integer.parseInt(value.toString()), key.toString()));
+
+            if(invertedWordCount.size() > N) {
+                invertedWordCount.remove(invertedWordCount.first());
+            }
         }
 
+        // Add Top10 words from each mapper to a TextArrayWritable object
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-            // TODO
+
+            for(Pair<Integer, String> item : invertedWordCount) {
+                String[] strings = {item.second, item.first.toString()};
+                TextArrayWritable val = new TextArrayWritable(strings);
+                context.write(NullWritable.get(), val);
+            }
         }
     }
 
     public static class TopTitlesReduce extends Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
         Integer N;
-        // TODO
+        private TreeSet<Pair<Integer, String>> invertedWordCount = new TreeSet<>();
 
         @Override
         protected void setup(Context context) throws IOException,InterruptedException {
@@ -183,9 +195,29 @@ public class TopTitles extends Configured implements Tool {
             this.N = conf.getInt("N", 10);
         }
 
+        // Prune mapper output to Top N and write context
         @Override
         public void reduce(NullWritable key, Iterable<TextArrayWritable> values, Context context) throws IOException, InterruptedException {
-            // TODO
+            // Loop through mapper values and isolate Top N
+            for(TextArrayWritable val : values) {
+                Text[] pair = (Text[]) val.toArray();
+
+                String word =  pair[0].toString();
+                Integer count = Integer.parseInt(pair[1].toString());
+
+                invertedWordCount.add(new Pair<>(count, word));
+
+                if(invertedWordCount.size() > N) {
+                    invertedWordCount.remove(invertedWordCount.first());
+                }
+            }
+
+            // Write output
+            for(Pair<Integer, String> item : invertedWordCount) {
+                Text word = new Text(item.second.toString());
+                IntWritable count = new IntWritable(item.first);
+                context.write(word, count);
+            }
         }
     }
 

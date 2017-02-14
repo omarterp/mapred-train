@@ -37,7 +37,6 @@ public class TopWords {
         public void map(Object key, Text value, Context context)
                 throws IOException, InterruptedException {
             String line = value.toString();
-            11
             StringTokenizer tokenizer = new
                     StringTokenizer(line, " \t,;.?!-:@[](){}_*/");
             while (tokenizer.hasMoreTokens()) {
@@ -65,14 +64,14 @@ public class TopWords {
     }
     public static class TopWordsMap extends Mapper<Text, Text,
             NullWritable, TextArrayWritable> {
-        private TreeSet<Pair<Integer, String>> countToWordMap =
-                new TreeSet<Pair<Integer, String>>();
+        private TreeSet<Pair2<Integer, String>> countToWordMap =
+                new TreeSet<Pair2<Integer, String>>();
         @Override
         public void map(Text key, Text value, Context context)
                 throws IOException, InterruptedException {
             Integer count = Integer.parseInt(value.toString());
             String word = key.toString();
-            countToWordMap.add(new Pair<Integer, String>(count,
+            countToWordMap.add(new Pair2<Integer, String>(count,
                     word));
             if (countToWordMap.size() > 10) {
                 countToWordMap.remove(countToWordMap.first());
@@ -82,7 +81,7 @@ public class TopWords {
         @Override
         protected void cleanup(Context context) throws
                 IOException, InterruptedException {
-            for (Pair<Integer, String> item : countToWordMap) {
+            for (Pair2<Integer, String> item : countToWordMap) {
                 String[] strings = {item.second,
                         item.first.toString()};
                 TextArrayWritable val = new
@@ -93,24 +92,24 @@ public class TopWords {
     }
     public static class TopWordsReduce extends
             Reducer<NullWritable, TextArrayWritable, Text, IntWritable> {
-        private TreeSet<Pair<Integer, String>> countToWordMap =
-                new TreeSet<Pair<Integer, String>>();
+        private TreeSet<Pair2<Integer, String>> countToWordMap =
+                new TreeSet<>();
         @Override
         public void reduce(NullWritable key,
                            Iterable<TextArrayWritable> values, Context context) throws
                 IOException, InterruptedException {
             for (TextArrayWritable val: values) {
-                Text[] pair= (Text[]) val.toArray();
-                String word = pair[0].toString();
+                Text[] Pair2= (Text[]) val.toArray();
+                String word = Pair2[0].toString();
                 Integer count =
-                        Integer.parseInt(pair[1].toString());
-                countToWordMap.add(new Pair<Integer,
+                        Integer.parseInt(Pair2[1].toString());
+                countToWordMap.add(new Pair2<Integer,
                         String>(count, word));
                 if (countToWordMap.size() > 10) {
                     countToWordMap.remove(countToWordMap.first());
                 }
             }
-            for (Pair<Integer, String> item: countToWordMap) {
+            for (Pair2<Integer, String> item: countToWordMap) {
                 Text word = new Text(item.second);
                 IntWritable value = new IntWritable(item.first);
                 context.write(word, value);
@@ -150,23 +149,23 @@ public class TopWords {
     }
 }
 
-class Pair<A extends Comparable<? super A>,
+class Pair2<A extends Comparable<? super A>,
         B extends Comparable<? super B>>
-        implements Comparable<Pair<A, B>> {
+        implements Comparable<Pair2<A, B>> {
 
     public final A first;
     public final B second;
-    public Pair(A first, B second) {
+    public Pair2(A first, B second) {
         this.first = first;
         this.second = second;
     }
     public static <A extends Comparable<? super A>,
             B extends Comparable<? super B>>
-    Pair<A, B> of(A first, B second) {
-        return new Pair<A, B>(first, second);
+    Pair2<A, B> of(A first, B second) {
+        return new Pair2<A, B>(first, second);
     }
     @Override
-    public int compareTo(Pair<A, B> o) {
+    public int compareTo(Pair2<A, B> o) {
         int cmp = o == null ? 1 :
                 (this.first).compareTo(o.first);
         return cmp == 0 ? (this.second).compareTo(o.second) :
@@ -181,12 +180,12 @@ class Pair<A extends Comparable<? super A>,
     }
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof Pair))
+        if (!(obj instanceof Pair2))
             return false;
         if (this == obj)
             return true;
-        return equal(first, ((Pair<?, ?>) obj).first)
-                && equal(second, ((Pair<?, ?>) obj).second);
+        return equal(first, ((Pair2<?, ?>) obj).first)
+                && equal(second, ((Pair2<?, ?>) obj).second);
     }
     private boolean equal(Object o1, Object o2) {
         return o1 == o2 || (o1 != null && o1.equals(o2));
