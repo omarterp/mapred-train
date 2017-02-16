@@ -1,5 +1,5 @@
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+package exa;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -106,13 +106,11 @@ public class TitleCount extends Configured implements Tool {
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context)
                 throws IOException, InterruptedException {
-
             int freq = 0;
             // Iterate over the words object and sum word occurrences
             for(IntWritable val : values) {
                     freq += val.get();
                 }
-
             context.write(key, new IntWritable(freq));
         }
     }

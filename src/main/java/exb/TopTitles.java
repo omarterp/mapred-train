@@ -1,5 +1,5 @@
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+package exb;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -141,20 +141,17 @@ public class TopTitles extends Configured implements Tool {
         @Override
         public void reduce(Text key, Iterable<IntWritable> values, Context context)
                 throws IOException, InterruptedException {
-
             int freq = 0;
             // Iterate over the words object and sum word occurrences
             for(IntWritable val : values) {
                 freq += val.get();
             }
-
             context.write(key, new IntWritable(freq));
         }
     }
 
     public static class TopTitlesMap extends Mapper<Text, Text, NullWritable, TextArrayWritable> {
         Integer N;
-
         private TreeSet<Pair<Integer, String>> invertedWordCount = new TreeSet<>();
 
         @Override
@@ -176,7 +173,6 @@ public class TopTitles extends Configured implements Tool {
         // Add Top10 words from each mapper to a TextArrayWritable object
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
-
             for(Pair<Integer, String> item : invertedWordCount) {
                 String[] strings = {item.second, item.first.toString()};
                 TextArrayWritable val = new TextArrayWritable(strings);
@@ -214,9 +210,7 @@ public class TopTitles extends Configured implements Tool {
 
             // Write output
             for(Pair<Integer, String> item : invertedWordCount) {
-                Text word = new Text(item.second.toString());
-                IntWritable count = new IntWritable(item.first);
-                context.write(word, count);
+                context.write(new Text(item.second.toString()), new IntWritable(item.first));
             }
         }
     }

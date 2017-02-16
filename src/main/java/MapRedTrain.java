@@ -94,7 +94,7 @@ public class MapRedTrain {
     /**
      * Reduces the mapped words and frequency
      *
-     * @return KV Pair of word and frequency
+     * @return KV exb.Pair of word and frequency
      */
     public Map<String, Integer> reduce() {
         Map<String, Integer> wordCounts = new HashMap<>();
