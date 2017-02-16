@@ -31,6 +31,13 @@ public class TitleCount extends Configured implements Tool {
     public int run(String[] args) throws Exception {
 
         Job job = Job.getInstance(this.getConf(), "Title Count");
+
+        // Set Configuration
+        Configuration conf = job.getConfiguration();
+        conf.set("delimiters", "tmp/delimiters.txt");
+        conf.set("stopwords", "tmp/stopwords.txt");
+
+
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
 
@@ -72,6 +79,7 @@ public class TitleCount extends Configured implements Tool {
         protected void setup(Context context) throws IOException,InterruptedException {
 
             Configuration conf = context.getConfiguration();
+
 
             String stopWordsPath = conf.get("stopwords");
             String delimitersPath = conf.get("delimiters");

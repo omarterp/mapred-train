@@ -14,7 +14,7 @@ import
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class TopWords {
+public class TopTitleRef {
     public static class TextArrayWritable extends ArrayWritable
     {
         public TextArrayWritable() {
@@ -129,7 +129,7 @@ public class TopWords {
         jobA.setReducerClass(WordCountReduce.class);
         FileInputFormat.setInputPaths(jobA, new Path(args[0]));
         FileOutputFormat.setOutputPath(jobA, tmpPath);
-        jobA.setJarByClass(TopWords.class);
+        jobA.setJarByClass(TopTitleRef.class);
         jobA.waitForCompletion(true);
 
         Job jobB = Job.getInstance(conf, "Top Words");
@@ -144,7 +144,7 @@ public class TopWords {
         FileOutputFormat.setOutputPath(jobB, new Path(args[1]));
         jobB.setInputFormatClass(KeyValueTextInputFormat.class);
         jobB.setOutputFormatClass(TextOutputFormat.class);
-        jobB.setJarByClass(TopWords.class);
+        jobB.setJarByClass(TopTitleRef.class);
         System.exit(jobB.waitForCompletion(true) ? 0 : 1);
     }
 }
