@@ -217,9 +217,19 @@ public class TopTitleStatistics extends Configured implements Tool {
                 sum += count;
             }
 
-            // sum
+            // calc mean, which is needed for var - assign min and max after sorting
+            mean = sum / N;
 
-            // TODO
+            Collections.sort(counts);
+            min = counts.get(0);
+            max = counts.get(N-1);
+
+            // calc var
+            int sumSquaresError = 0;
+            for(Integer count : counts) {
+                sumSquaresError += Math.pow(count - mean, 2);
+            }
+            var = sumSquaresError / N;
 
             context.write(new Text("Mean"), new IntWritable(mean));
             context.write(new Text("Sum"), new IntWritable(sum));
