@@ -1,6 +1,7 @@
 package exe;
 
 import exc.TopTitleStatistics;
+import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -55,7 +56,7 @@ public class TopPopularLinks extends Configured implements Tool {
     public int run(String[] args) throws Exception {
         Configuration conf = this.getConf();
         FileSystem fs = FileSystem.get(conf);
-        Path tmpPath = new Path("/mp2/tmp");
+        Path tmpPath = new Path("mp2/tmp");
         fs.delete(tmpPath, true);
 
         Job jobCounter = Job.getInstance(conf, "Link Counter");
@@ -72,8 +73,8 @@ public class TopPopularLinks extends Configured implements Tool {
         jobCounter.waitForCompletion(true);
 
         Job jobTopLinks = Job.getInstance(conf, "Top Popular Links");
-        jobCounter.setOutputKeyClass(IntWritable.class);
-        jobCounter.setOutputValueClass(IntWritable.class);
+        jobTopLinks.setOutputKeyClass(NullWritable.class);
+        jobTopLinks.setOutputValueClass(IntArrayWritable.class);
 
         jobTopLinks.setMapperClass(TopLinksMap.class);
         jobTopLinks.setReducerClass(TopLinksReduce.class);
@@ -81,6 +82,9 @@ public class TopPopularLinks extends Configured implements Tool {
 
         FileInputFormat.setInputPaths(jobTopLinks, tmpPath);
         FileOutputFormat.setOutputPath(jobTopLinks, new Path(args[1]));
+
+        jobTopLinks.setInputFormatClass(KeyValueTextInputFormat.class);
+        jobTopLinks.setOutputFormatClass(TextOutputFormat.class);
 
         jobTopLinks.setJarByClass(TopPopularLinks.class);
         return jobTopLinks.waitForCompletion(true) ? 0 : 1;
@@ -92,7 +96,6 @@ public class TopPopularLinks extends Configured implements Tool {
             String KV_DELIMITER = ":";
             String VALUE_DELIMITER = "\\s";
 
-            String referrer = value.toString().split(KV_DELIMITER)[0];
             String linkedPages = value.toString().split(KV_DELIMITER)[1];
 
             for(String page : linkedPages.split(VALUE_DELIMITER)) {
@@ -102,8 +105,6 @@ public class TopPopularLinks extends Configured implements Tool {
                     context.write(new IntWritable(Integer.parseInt(cleanPage)), new IntWritable(1));
                 }
             }
-            // referrer, which may not have any links - setting to 0
-            context.write(new IntWritable(Integer.parseInt(referrer)), new IntWritable(0));
         }
     }
 
@@ -111,7 +112,6 @@ public class TopPopularLinks extends Configured implements Tool {
         @Override
         public void reduce(IntWritable key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
             int linkedTotal = 0;
-
             for(IntWritable hit : values) {
                 linkedTotal += hit.get();
             }
@@ -132,8 +132,8 @@ public class TopPopularLinks extends Configured implements Tool {
 
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            invertedLinkCount.add(new Pair<>(Integer.parseInt(key.toString()),
-                    Integer.parseInt(value.toString())));
+            invertedLinkCount.add(new Pair<>(Integer.parseInt(value.toString()),
+                    Integer.parseInt(key.toString())));
 
             if(invertedLinkCount.size() > N) {
                 invertedLinkCount.remove(invertedLinkCount.first());
@@ -143,7 +143,7 @@ public class TopPopularLinks extends Configured implements Tool {
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
             for(Pair<Integer, Integer> item : invertedLinkCount) {
-                Integer[] numbers = {item.first, item.second};
+                Integer[] numbers = {item.second, item.first};
                 TopPopularLinks.IntArrayWritable val = new IntArrayWritable(numbers);
                 context.write(NullWritable.get(), val);
             }
@@ -171,7 +171,7 @@ public class TopPopularLinks extends Configured implements Tool {
                 Integer link = Integer.parseInt(pair[0].toString());
                 Integer count = Integer.parseInt(pair[1].toString());
 
-                invertedLinkCount.add(new Pair<>(link, count));
+                invertedLinkCount.add(new Pair<>(count, link));
 
                 if(invertedLinkCount.size() > N) {
                     invertedLinkCount.remove(invertedLinkCount.first());
@@ -180,7 +180,7 @@ public class TopPopularLinks extends Configured implements Tool {
 
             // Write output
             for(Pair<Integer, Integer> item : invertedLinkCount) {
-                context.write(new IntWritable(item.first), new IntWritable(item.second));
+                context.write(new IntWritable(item.second), new IntWritable(item.first));
             }
         }
     }

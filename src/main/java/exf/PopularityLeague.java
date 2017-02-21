@@ -1,5 +1,6 @@
 package exf;
 
+import org.apache.commons.lang.ObjectUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -13,7 +14,9 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -66,12 +69,15 @@ public class PopularityLeague extends Configured implements Tool {
     public int run(String[] args) throws Exception {
         Configuration conf = this.getConf();
         FileSystem fs = FileSystem.get(conf);
-        Path tmpPath = new Path("/mp2/tmp");
+        Path tmpPath = new Path("mp2/tmp");
         fs.delete(tmpPath, true);
 
         Job jobCounter = Job.getInstance(conf, "Link Counter");
         jobCounter.setOutputKeyClass(IntWritable.class);
         jobCounter.setOutputValueClass(IntWritable.class);
+
+        conf.set("league", "league.txt");
+        System.out.println(conf.get("league"));
 
         jobCounter.setMapperClass(LinkCountMap.class);
         jobCounter.setReducerClass(LinkCountReduce.class);
@@ -82,9 +88,9 @@ public class PopularityLeague extends Configured implements Tool {
         jobCounter.setJarByClass(PopularityLeague.class);
         jobCounter.waitForCompletion(true);
 
-        Job jobPageRank = Job.getInstance(conf, "Top Popular Links");
-        jobCounter.setOutputKeyClass(IntWritable.class);
-        jobCounter.setOutputValueClass(IntWritable.class);
+        Job jobPageRank = Job.getInstance(conf, "Page Rank");
+        jobPageRank.setOutputKeyClass(NullWritable.class);
+        jobPageRank.setOutputValueClass(IntArrayWritable.class);
 
         jobPageRank.setMapperClass(RankLinks.class);
         jobPageRank.setReducerClass(TopLinksReduce.class);
@@ -92,6 +98,9 @@ public class PopularityLeague extends Configured implements Tool {
 
         FileInputFormat.setInputPaths(jobPageRank, tmpPath);
         FileOutputFormat.setOutputPath(jobPageRank, new Path(args[1]));
+
+        jobPageRank.setInputFormatClass(KeyValueTextInputFormat.class);
+        jobPageRank.setOutputFormatClass(TextOutputFormat.class);
 
         jobPageRank.setJarByClass(PopularityLeague.class);
         return jobPageRank.waitForCompletion(true) ? 0 : 1;
@@ -105,7 +114,9 @@ public class PopularityLeague extends Configured implements Tool {
         protected void setup(Context context) throws IOException, InterruptedException {
             super.setup(context);
 
-            linksLeague = Arrays.asList(readHDFSFile("league", context.getConfiguration()).split(System.lineSeparator()));
+            Configuration conf = context.getConfiguration();
+            String path = "league.txt";//conf.get("league");
+            linksLeague = Arrays.asList(readHDFSFile(path, conf).split(System.lineSeparator()));
         }
 
         @Override
@@ -121,11 +132,6 @@ public class PopularityLeague extends Configured implements Tool {
                 if(cleanPage.length() > 0 & linksLeague.contains(cleanPage)) {
                     context.write(new IntWritable(Integer.parseInt(cleanPage)), new IntWritable(1));
                 }
-            }
-
-            // Default links league with zero count to include in results, even if not found
-            for(String link : linksLeague){
-                context.write(new IntWritable(Integer.parseInt(link)), new IntWritable(0));
             }
         }
     }
@@ -145,18 +151,29 @@ public class PopularityLeague extends Configured implements Tool {
 
     public static class RankLinks extends Mapper<Text, Text, NullWritable, IntArrayWritable> {
         TreeSet<Pair<Integer, Integer>> invertedLinkCount = new TreeSet<>();
+        List<String> linksLeague;
+
+        // Pull Popularity League - to default; links may not exist in data
+        @Override
+        protected void setup(Context context) throws IOException, InterruptedException {
+            super.setup(context);
+
+            Configuration conf = context.getConfiguration();
+            String path = conf.get("league");
+            linksLeague = Arrays.asList(readHDFSFile(path, conf).split(System.lineSeparator()));
+        }
 
         // Populated ordered Set
         @Override
         protected void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-            invertedLinkCount.add(new Pair<>(Integer.parseInt(key.toString()),
-                    Integer.parseInt(value.toString())));
+            invertedLinkCount.add(new Pair<>(Integer.parseInt(value.toString()),
+                    Integer.parseInt(key.toString())));
         }
 
         @Override
         protected void cleanup(Context context) throws IOException, InterruptedException {
             for(Pair<Integer, Integer> item : invertedLinkCount) {
-                Integer[] numbers = {item.first, item.second};
+                Integer[] numbers = {item.second, item.first};
                 PopularityLeague.IntArrayWritable val = new IntArrayWritable(numbers);
                 context.write(NullWritable.get(), val);
             }
@@ -177,21 +194,31 @@ public class PopularityLeague extends Configured implements Tool {
                 Integer link = Integer.parseInt(pair[0].toString());
                 Integer count = Integer.parseInt(pair[1].toString());
 
-                invertedLinkCount.add(new Pair<>(link, count));
+                invertedLinkCount.add(new Pair<>(count, link));
             }
 
             // Write output - rank based on order - lastVal used to track ties and index used to increment rank
             int rank = 0;
             int index = 0;
+            int ties = 0;
             int lastVal = 0;
 
+            // Assign ranking, accounting for ties
             for(Pair<Integer, Integer> item : invertedLinkCount) {
-                if(item.second == lastVal || index == 0) {
+                if(item.first == lastVal) {
                     rank = rank;
+                    ties++;
+                } else if (ties > 0) {
+                    // increment tie to account for places - e.g. 1 tie means 2 places.
+                    rank += ++ties;
+                    // reset ties
+                    ties = 0;
                 } else {
-                    rank += index;
+                    rank = index;
                 }
-                context.write(new IntWritable(item.first), new IntWritable(rank));
+                context.write(new IntWritable(item.second), new IntWritable(rank));
+
+                lastVal = item.first;
                 index++;
             }
         }
